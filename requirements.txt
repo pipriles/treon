@@ -1,0 +1,4 @@
+requests==2.13.0
+selenium==3.0.2
+tweepy==3.5.0
+beautifulsoup4==4.5.3
