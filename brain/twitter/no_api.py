@@ -34,7 +34,7 @@ def fetch_tweets(user, max_=1000):
 
 	# Open file
 	path = FILE_PATH.format(user)
-	file = open(path, 'w')
+	file = open(path, 'w', encoding='utf-8')
 	wt = csv.writer(file)
 
 	while max_position is not None and cont < max_:

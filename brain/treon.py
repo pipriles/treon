@@ -50,7 +50,7 @@ def check_creators(path=FILE_PATH):
 
 	creators = []
 	try:
-		f = open(path, 'r') 
+		f = open(path, 'r', encoding='utf-8') 
 		reader = csv.DictReader(f)
 		creators = [x for x in reader]
 		f.close()
@@ -66,7 +66,7 @@ def store_creators(data, path=FILE_PATH):
 	# This will never happen
 	if not data: return
 
-	with open(path, 'w') as f:	
+	with open(path, 'w', encoding='utf-8') as f:	
 		poe = csv.writer(f)
 		poe.writerow(data[0].keys()) # Column names
 
@@ -182,7 +182,10 @@ class ArtistScraper():
 			self._mode = 'w'
 
 	def open(self):
-		self.file = open(self._path, self._mode)
+		self.file = open(
+			self._path, 
+			self._mode, encoding='utf-8')
+
 		self.w = csv.writer(self.file)
 		self.w.writerow(self._header)
 
@@ -205,7 +208,7 @@ def start_scrape_pool(data):
 	path = config.SCRAPED_FILE
 
 	mode = 'a' if os.path.exists(path) else 'w'
-	f = open(path, mode)
+	f = open(path, mode, encoding='utf-8')
 	w = csv.writer(f)
 
 	def scrape_helper(artist):

@@ -97,7 +97,7 @@ def scrape_tweets(user):
 
 	path = TWEETS_PATH + '{}_tweets.csv' .format(user)
 
-	with open(path, 'w') as f:
+	with open(path, 'w', encoding='utf-8') as f:
 		
 		writer = csv.writer(f)
 		writer.writerow(tweet_data)
