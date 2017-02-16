@@ -32,8 +32,12 @@ import tweepy
 import csv
 import os
 import logging
+import time
+import random
 
 from ..config import *
+
+MAX_RETRIES = 5
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,7 @@ def filter_data(tweet):
 	return tuple(getattr(tweet, attr) for attr in tweet_data)
 	# Should i encode utf-8 the text?
 
-def fetch_tweets(user, max_cont=None):
+def fetch_tweets(user, max_cont=None, oldest=None):
 	#
 	# First steps...
 	
@@ -52,13 +56,29 @@ def fetch_tweets(user, max_cont=None):
 	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
 	api = tweepy.API(auth)
 	
-	oldest = None
+	retries = MAX_RETRIES
 	cont = 0
 
 	while max_cont is None or cont < max_cont:
 
-		chunk = api.user_timeline(
-			screen_name=user, count=200, max_id=oldest)
+		logger.debug("{} : {}".format(user, oldest))
+
+		try:
+			chunk = api.user_timeline(
+				screen_name=user, count=200, max_id=oldest)
+		except Exception as e:
+
+			if retries > 0:
+				retries -= 1	
+
+				step = random.randint(1, MAX_RETRIES-retries)
+				logger.warning('Error!, Retrying {}s ...'.format(step))
+
+				time.sleep(2 ** step)
+
+				continue
+
+			raise e
 
 		if len(chunk) <= 0:
 			break
@@ -72,8 +92,10 @@ def fetch_tweets(user, max_cont=None):
 
 def scrape_tweets(user):
 	
-	create_csv_folder()
-	path = FOLDER_PATH + '{}_tweets.csv' .format(user)
+	if not os.path.exists(TWEETS_PATH):
+		os.makedirs(TWEETS_PATH)
+
+	path = TWEETS_PATH + '{}_tweets.csv' .format(user)
 
 	with open(path, 'w') as f:
 		
@@ -84,12 +106,6 @@ def scrape_tweets(user):
 			writer.writerows(tweets)
 
 	logger.info('Done.')
-
-def create_csv_folder():
-	try:
-		os.mkdir(FOLDER_PATH)
-	except FileExistsError:
-		pass
 
 def main():
 	scrape_tweets('KindaFunnyVids')	# Should i put multithread pool?

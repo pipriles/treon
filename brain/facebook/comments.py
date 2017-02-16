@@ -4,6 +4,7 @@ import datetime
 import csv
 import time
 import logging
+import os
 
 from .. import config
 
@@ -85,9 +86,17 @@ def processFacebookComment(comment, status_id, parent_id = ''):
 
     return (comment_id, status_id, parent_id, comment_message, comment_author,
             comment_published, comment_likes)
-
+    
 def scrapeFacebookPageFeedComments(page_id, access_token):
-    with open('%s_facebook_comments.csv' % file_id, 'w', newline='', encoding='utf-8') as file:
+
+    # path = config.POSTS_PATH + '{}_comments.csv'.format(page_id)
+
+    # Create path
+    if not os.path.exists(config.COMMENTS_PATH):
+        os.makedirs(config.COMMENTS_PATH)
+
+    path = config.COMMENTS_PATH + '{}_comments.csv'.format(file_id)
+    with open(path, 'w', newline='', encoding='utf-8') as file:
         w = csv.writer(file)
         w.writerow(["comment_id", "status_id", "parent_id", "comment_message",
             "comment_author", "comment_published", "comment_likes"])

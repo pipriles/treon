@@ -9,6 +9,7 @@
 # Put facebook comments
 # Solve tweepy problem
 
+import os
 import re
 import logging
 
@@ -42,8 +43,8 @@ logger.setLevel(logging.DEBUG)
 q = Queue(MAX_Q_SIZE)
 
 # I don't like this solution
-f_queue = Queue(1)
-t_queue = Queue(1)
+f_queue = Queue()
+t_queue = Queue()
 
 class Treon(Thread):
 
@@ -79,13 +80,23 @@ class FacebookTask(Thread):
 
 	# I really need to change this facebook code
 	def run(self):
-		while True:
+		self.end = False
+
+		while not self.end:
 			user = f_queue.get()
 
-			logger.info('Scraping {} posts'.format(user))
-			posts.scrapeFacebookPageFeedStatus(user, self.token)
+			try:
+				logger.info('Scraping {} posts'.format(user))
+				posts.scrapeFacebookPageFeedStatus(user, self.token)
+			except Exception as e:
+				logger.warning(e)
+				pass
+
 			# q.task_done()
 			# Name very long
+
+	def close(self):
+		self.end = True
 
 class TwitterTask(Thread):
 
@@ -94,11 +105,20 @@ class TwitterTask(Thread):
 		self.user = None
 
 	def run(self):
-		while True:
+		self.end = False
+
+		while not self.end:
 			user = t_queue.get()
 
-			logger.info('Scraping {} tweets'.format(user))
-			tweets.scrape_tweets(user)
+			try:
+				logger.info('Scraping {} tweets'.format(user))
+				tweets.scrape_tweets(user)
+			except Exception as e:
+				logger.warning(e)
+				pass
+
+	def close(self):
+		self.end = True
 
 def facebook_work(url):
 	if url is not None:
@@ -124,23 +144,27 @@ def main():
 	data = treon.fetch_creators()
 
 	def finish_threads():
-		fb_thread.join()
-		tw_thread.join()
 		for t in threads:
+			t.close()
 			t.join()
-		
+
 	for i in range(MAX_THREADS):
 		t = Treon(data)
-		t.start()
 		threads.append(t)
 
-	fb_thread = FacebookTask()
-	tw_thread = TwitterTask()
-
-	fb_thread.start()
-	tw_thread.start()
+	threads.append(FacebookTask())
+	threads.append(TwitterTask())
 	
-	finish_threads() # Block till end
+	for t in threads:
+		t.start()
+	
+	try:
+		while True:
+			pass
+	except BaseException:
+		pass
+	finally:
+		finish_threads()
 
 	# try:
 	# 	while True:

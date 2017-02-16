@@ -5,6 +5,7 @@ import csv
 import time
 import codecs
 import logging
+import os
 
 from .. import config
 
@@ -20,6 +21,7 @@ def request_until_succeed(url):
     success = False
     while success is False:
         try: 
+            logger.debug('Requesting %s...', url[:52])
             response = urllib.request.urlopen(req)
             if response.getcode() == 200:
                 success = True
@@ -151,7 +153,12 @@ def processFacebookPageFeedStatus(status, access_token):
             num_likes, num_loves, num_wows, num_hahas, num_sads, num_angrys)
 
 def scrapeFacebookPageFeedStatus(page_id, access_token):
-    with open('%s_facebook_statuses.csv' % page_id, 'w', newline='',encoding='utf-8') as file:
+
+    if not os.path.exists(config.POSTS_PATH):
+        os.makedirs(config.POSTS_PATH)
+
+    path = config.POSTS_PATH + '{}_posts.csv'.format(page_id)
+    with open(path, 'w', newline='', encoding='utf-8') as file:
         w = csv.writer(file)
         w.writerow(["status_id", "status_message", "link_name", "status_type",
                     "status_link", "status_published", "num_reactions", 
