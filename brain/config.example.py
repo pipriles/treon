@@ -22,7 +22,9 @@ SCRAPED_FILE = 'scraped.csv'
 
 # Path to the csv folder
 
-FOLDER_PATH = 'csv/'
+TWEETS_PATH = 'csv/posts/'
+POSTS_PATH = 'csv/posts/'
+COMMENTS_PATH = 'csv/comments/'
 
 # Facebook API credentials
 
