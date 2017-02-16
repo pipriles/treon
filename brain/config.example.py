@@ -22,7 +22,7 @@ SCRAPED_FILE = 'scraped.csv'
 
 # Path to the csv folder
 
-TWEETS_PATH = 'csv/posts/'
+TWEETS_PATH = 'csv/tweets/'
 POSTS_PATH = 'csv/posts/'
 COMMENTS_PATH = 'csv/comments/'
 
