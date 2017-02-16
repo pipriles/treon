@@ -60,6 +60,10 @@ class Treon(Thread):
 		try:
 			while not self.end and self.data:
 				user = self.data.pop(0)
+				
+				logger.debug(
+					'(%4s) Fetching %s ...', len(self.data), user)
+				
 				stat = ap.start(user)
 				resolve_tasks(stat)
 
@@ -67,6 +71,7 @@ class Treon(Thread):
 			raise e
 
 		finally:
+			logger.info('Closed treon task.')
 			ap.close()
 
 	def close(self): 
@@ -96,6 +101,7 @@ class FacebookTask(Thread):
 			# Name very long
 
 	def close(self):
+		logger.info('Closed facebook task.')
 		self.end = True
 
 class TwitterTask(Thread):
@@ -118,6 +124,7 @@ class TwitterTask(Thread):
 				pass
 
 	def close(self):
+		logger.info('Closed twitter task.')
 		self.end = True
 
 def facebook_work(url):
@@ -161,8 +168,8 @@ def main():
 	try:
 		while True:
 			pass
-	except BaseException:
-		pass
+	except BaseException as e:
+		logger.debug('Exit! %s', e)
 	finally:
 		finish_threads()
 
