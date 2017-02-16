@@ -12,3 +12,5 @@ To do:
 - [ ] Save the state of the script
 - [ ] Put facebook comments
 - [ ] Solve tweepy problem
+- [ ] Add youtube scraper
+- [ ] Fix 3000 Tweets limit the rest of twitter tweets
