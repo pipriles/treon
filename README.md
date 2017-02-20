@@ -8,7 +8,7 @@ To do:
 - [X] Scrape facebook
 - [X] Make it work in parallel
 - [X] Debug with logging
-- [ ] Change csv folder dest
+- [X] Change csv folder dest
 - [ ] Save the state of the script
 - [ ] Put facebook comments
 - [ ] Solve tweepy problem

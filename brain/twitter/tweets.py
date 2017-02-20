@@ -48,13 +48,16 @@ def filter_data(tweet):
 	return tuple(getattr(tweet, attr) for attr in tweet_data)
 	# Should i encode utf-8 the text?
 
+def twitter_api():
+	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+	return tweepy.API(auth)
+
 def fetch_tweets(user, max_cont=None, oldest=None):
 	#
 	# First steps...
 	
-	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
-	api = tweepy.API(auth)
+	api = twitter_api()
 	
 	retries = MAX_RETRIES
 	cont = 0
@@ -72,7 +75,7 @@ def fetch_tweets(user, max_cont=None, oldest=None):
 				retries -= 1	
 
 				step = random.randint(1, MAX_RETRIES-retries)
-				logger.warning('Error!, Retrying {}s ...'.format(step))
+				logger.warning('Error! ({}), Retrying {}s ...'.format(e, step))
 
 				time.sleep(2 ** step)
 

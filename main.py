@@ -97,6 +97,8 @@ class FacebookTask(Thread):
 				logger.warning(e)
 				pass
 
+			# make the same here for the comments
+
 			# q.task_done()
 			# Name very long
 
