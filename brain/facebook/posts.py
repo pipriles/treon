@@ -91,7 +91,7 @@ def parse_post(post):
 
     def to_datetime(date):
         t = dt.datetime.strptime(date, FROM_DT_FORMAT)
-        return t.strftime(date, TO_DT_FORMAT)
+        return t.strftime(TO_DT_FORMAT)
 
     def get_summary(attr, src):
         if attr in src:
@@ -135,14 +135,11 @@ def parse_post(post):
 def write_stats(stats, writer):
 
     for st in stats:
-        if 'reactions' not in st:   # Not sure if this is useful
+        if 'reactions' in st:   # Not sure if this is useful
             data = parse_post(st)
             writer.writerow(data)
 
 def scrape_posts(page):
-
-    def write_stats(stats):
-        wt.writerow(st)
 
     if not os.path.exists(config.POSTS_PATH):
         os.makedirs(config.POSTS_PATH)
