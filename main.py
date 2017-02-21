@@ -21,7 +21,7 @@ from brain import treon
 from brain.twitter import tweets
 from brain.facebook import posts
 
-MAX_THREADS = 6
+MAX_THREADS = 3
 MAX_Q_SIZE = 10
 
 #logging.basicConfig(
@@ -81,7 +81,6 @@ class FacebookTask(Thread):
 
 	def __init__(self):
 		super(FacebookTask, self).__init__()
-		self.token = posts.access_token
 
 	# I really need to change this facebook code
 	def run(self):
@@ -92,7 +91,7 @@ class FacebookTask(Thread):
 
 			try:
 				logger.info('Scraping {} posts'.format(user))
-				posts.scrapeFacebookPageFeedStatus(user, self.token)
+				posts.scrape_posts(user)
 			except Exception as e:
 				logger.warning(e)
 				pass
@@ -110,7 +109,6 @@ class TwitterTask(Thread):
 
 	def __init__(self):
 		super(TwitterTask, self).__init__()
-		self.user = None
 
 	def run(self):
 		self.end = False

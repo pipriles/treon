@@ -1,9 +1,10 @@
-import urllib.request
-import json
-import datetime
+#!/usr/bin/env python
+# encoding: utf-8
+
+import requests as rq
+import datetime as dt
 import csv
 import time
-import codecs
 import logging
 import os
 
@@ -12,195 +13,172 @@ from .. import config
 # I'll make this multithreading to accelerate the
 # requests
 
+BASE_URL = 'https://graph.facebook.com/v2.6/'
+
 logger = logging.getLogger(__name__)
 
 access_token = config.APP_ID + '|' + config.APP_SECRET
 
-def request_until_succeed(url):
-    req = urllib.request.Request(url)
-    success = False
-    while success is False:
-        try: 
-            logger.debug('Requesting %s...', url[:52])
-            response = urllib.request.urlopen(req)
-            if response.getcode() == 200:
-                success = True
+CSV_HEADER = ["status_id", "status_message", "link_name", 
+    "status_type", "status_link", "status_published", 
+    "num_reactions", "num_comments", "num_shares", "num_likes", 
+    "num_loves", "num_wows", "num_hahas", "num_sads", "num_angrys"]
+
+FROM_DT_FORMAT = '%Y-%m-%dT%H:%M:%S+0000'
+TO_DT_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+def do_request(url, params={}, retries=10):
+
+    data = None
+
+    while retries > 0:
+        try:
+            resp = rq.get(url, params=params)
+            data = resp.json()
+            retries  = 0
         except Exception as e:
-            logger.error(e)
-            time.sleep(5)
-
-            logger.error("Error for URL %s: %s" % (url, datetime.datetime.now()))
-            logger.error("Retrying.")
-
-    return response.read().decode(response.headers.get_content_charset())
-
-
-# Needed to write tricky unicode correctly to csv
-def unicode_normalize(text):
-    return text.translate({ 0x2018:0x27, 0x2019:0x27, 0x201C:0x22, 0x201D:0x22,
-                            0xa0:0x20 })
-
-def getFacebookPageFeedData(page_id, access_token, num_statuses):
-
-    # Construct the URL string; see http://stackoverflow.com/a/37239851 for
-    # Reactions parameters
-    base = "https://graph.facebook.com/v2.6"
-    node = "/%s/posts" % page_id 
-    fields = "/?fields=message,link,created_time,type,name,id," + \
-            "comments.limit(0).summary(true),shares,reactions" + \
-            ".limit(0).summary(true)"
-    parameters = "&limit=%s&access_token=%s" % (num_statuses, access_token)
-    url = base + node + fields + parameters
-
-    # retrieve data
-    data = json.loads(request_until_succeed(url))
+            retries -= 1
+            time.sleep(3)   # Put max wait time
 
     return data
 
-def getReactionsForStatus(status_id, access_token):
+def fetch_posts(page, limit):
 
-    # See http://stackoverflow.com/a/37239851 for Reactions parameters
-        # Reactions are only accessable at a single-post endpoint
+    node = '{}/posts'.format(page)
 
-    base = "https://graph.facebook.com/v2.6"
-    node = "/%s" % status_id
-    reactions = "/?fields=" \
-            "reactions.type(LIKE).limit(0).summary(total_count).as(like)" \
-            ",reactions.type(LOVE).limit(0).summary(total_count).as(love)" \
-            ",reactions.type(WOW).limit(0).summary(total_count).as(wow)" \
-            ",reactions.type(HAHA).limit(0).summary(total_count).as(haha)" \
-            ",reactions.type(SAD).limit(0).summary(total_count).as(sad)" \
-            ",reactions.type(ANGRY).limit(0).summary(total_count).as(angry)"
-    parameters = "&access_token=%s" % access_token
-    url = base + node + reactions + parameters
+    # I have to move this to a superior scope
+    fields  = 'message,link,created_time,type,name,id,shares,'
+    fields += 'comments.limit(0).summary(true),'
+    fields += 'reactions.limit(0).summary(true)'
 
-    # retrieve data
-    data = json.loads(request_until_succeed(url))
+    params = {
+        'fields': fields,
+        'limit': limit,
+        'access_token': access_token    # APP ID | APP SECRET
+    }
 
+    url = BASE_URL + node
+
+    data = do_request(url, params)
+
+    # Load json from data
     return data
 
-    # posts = graph.get('user/posts')
-    # id_ = posts['data'][item]['id']
-    # status = graph.get(id_, fields=fields)
+def fetch_reactions(post):
 
-def processFacebookPageFeedStatus(status, access_token):
+    node = '{}'.format(post)
 
-    # The status is now a Python dictionary, so for top-level items,
-    # we can simply call the key.
+    fields  = "reactions.type(LIKE).limit(0).summary(total_count).as(like)"
+    fields += ",reactions.type(LOVE).limit(0).summary(total_count).as(love)"
+    fields += ",reactions.type(WOW).limit(0).summary(total_count).as(wow)"
+    fields += ",reactions.type(HAHA).limit(0).summary(total_count).as(haha)"
+    fields += ",reactions.type(SAD).limit(0).summary(total_count).as(sad)"
+    fields += ",reactions.type(ANGRY).limit(0).summary(total_count).as(angry)"
 
-    # Additionally, some items may not always exist,
-    # so must check for existence first
+    params = {
+        'fields': fields,
+        'access_token': access_token
+    }
 
-    status_id = status['id']
-    status_message = '' if 'message' not in status.keys() else \
-            unicode_normalize(status['message'])
-    link_name = '' if 'name' not in status.keys() else \
-            unicode_normalize(status['name'])
-    status_type = status['type']
-    status_link = '' if 'link' not in status.keys() else \
-            unicode_normalize(status['link'])
+    url = BASE_URL + node
 
-    # Time needs special care since a) it's in UTC and
-    # b) it's not easy to use in statistical programs.
+    data = do_request(url, params)
 
-    status_published = datetime.datetime.strptime(
-            status['created_time'],'%Y-%m-%dT%H:%M:%S+0000')
-    status_published = status_published + \
-            datetime.timedelta(hours=-5) # EST
-    status_published = status_published.strftime(
-            '%Y-%m-%d %H:%M:%S') # best time format for spreadsheet programs
+    # Load json from data
+    return data
 
-    # Nested items require chaining dictionary keys.
+def parse_post(post):
 
-    num_reactions = 0 if 'reactions' not in status else \
-            status['reactions']['summary']['total_count']
-    num_comments = 0 if 'comments' not in status else \
-            status['comments']['summary']['total_count']
-    num_shares = 0 if 'shares' not in status else status['shares']['count']
+    def to_datetime(date):
+        t = dt.datetime.strptime(date, FROM_DT_FORMAT)
+        return t.strftime(date, TO_DT_FORMAT)
 
-    # Counts of each reaction separately; good for sentiment
-    # Only check for reactions if past date of implementation:
-    # http://newsroom.fb.com/news/2016/02/reactions-now-available-globally/
-
-    reactions = getReactionsForStatus(status_id, access_token) if \
-            status_published > '2016-02-24 00:00:00' else {}
-
-    num_likes = 0 if 'like' not in reactions else \
-            reactions['like']['summary']['total_count']
-
-    # Special case: Set number of Likes to Number of reactions for pre-reaction
-    # statuses
-
-    num_likes = num_reactions if status_published < '2016-02-24 00:00:00' \
-            else num_likes
-
-    def get_num_total_reactions(reaction_type, reactions):
-        if reaction_type not in reactions:
-            return 0
+    def get_summary(attr, src):
+        if attr in src:
+            return src[attr]['summary']['total_count']
         else:
-            return reactions[reaction_type]['summary']['total_count']
+            return 0
 
-    num_loves = get_num_total_reactions('love', reactions)
-    num_wows = get_num_total_reactions('wow', reactions)
-    num_hahas = get_num_total_reactions('haha', reactions)
-    num_sads = get_num_total_reactions('sad', reactions)
-    num_angrys = get_num_total_reactions('angry', reactions)
+    id_ = post['id'] 
+    message = post.get('message', '')
+    name = post.get('name', '')
+    type_ = post.get('type', '')
+    link = post.get('link', '')
+    created_time = to_datetime(post['created_time'])
 
-    # Return a tuple of all processed data
+    reactions_count = get_summary('reactions', post)
+    comments_count = get_summary('comments', post)
 
-    return (status_id, status_message, link_name, status_type, status_link,
-            status_published, num_reactions, num_comments, num_shares,
-            num_likes, num_loves, num_wows, num_hahas, num_sads, num_angrys)
+    if 'shares' in post:
+        shares_count = post['shares']['count']
+    else:
+        shares_count = 0
 
-def scrapeFacebookPageFeedStatus(page_id, access_token):
+    reactions = {}
+
+    if created_time >= '2016-02-24 00:00:00':
+        reactions = fetch_reactions(post['id'])
+        likes = get_summary('likes', reactions)
+    else:
+        likes = reactions_count
+
+    loves = get_summary('love', reactions)
+    wows = get_summary('wow', reactions)
+    hahas = get_summary('haha', reactions)
+    sads = get_summary('sad', reactions)
+    angrys = get_summary('angry', reactions)
+
+    return (id_, message, name, type_, link, created_time, 
+        reactions_count, comments_count, shares_count,
+        likes, loves, wows, hahas, sads, angrys)
+
+def write_stats(stats, writer):
+
+    for st in stats:
+        if 'reactions' not in st:   # Not sure if this is useful
+            data = parse_post(st)
+            writer.writerow(data)
+
+def scrape_posts(page):
+
+    def write_stats(stats):
+        wt.writerow(st)
 
     if not os.path.exists(config.POSTS_PATH):
         os.makedirs(config.POSTS_PATH)
 
-    path = config.POSTS_PATH + '{}_posts.csv'.format(page_id)
-    with open(path, 'w', newline='', encoding='utf-8') as file:
-        w = csv.writer(file)
-        w.writerow(["status_id", "status_message", "link_name", "status_type",
-                    "status_link", "status_published", "num_reactions", 
-                    "num_comments", "num_shares", "num_likes", "num_loves", 
-                    "num_wows", "num_hahas", "num_sads", "num_angrys"])
+    path = config.POSTS_PATH + '{}_posts.csv'.format(page)
 
-        has_next_page = True
-        num_processed = 0   # keep a count on how many we've processed
-        scrape_starttime = datetime.datetime.now()
+    file = open(path, 'w', newline='', encoding='utf-8')
+    wt = csv.writer(file)
 
-        logger.info("Scraping %s Facebook Page: %s\n" % (page_id, scrape_starttime))
+    wt.writerow(CSV_HEADER)
 
-        statuses = getFacebookPageFeedData(page_id, access_token, 100)
+    done = False
+    count = 0
 
-        while has_next_page:
-            for status in statuses['data']:
+    stats = fetch_posts(page, 100)  # Put max limit to 100
 
-                # Ensure it is a status with the expected metadata
-                if 'reactions' in status:
-                    w.writerow(processFacebookPageFeedStatus(status,
-                        access_token))
+    while not done and stats is not None:
+        write_stats(stats['data'], wt)
+        count += len(stats['data'])
+        logger.info('Statuses processed: {}'.format(count))
 
-                # output progress occasionally to make sure code is not
-                # stalling
-                num_processed += 1
-                if num_processed % 100 == 0:
-                    logger.info("%s Statuses Processed: %s" % \
-                        (num_processed, datetime.datetime.now()))
+        if 'paging' in stats:
+            url = stats['paging']['next']
+            stats = do_request(url)
+        else:
+            done = True
 
-            # if there is no next page, we're done.
-            if 'paging' in statuses.keys():
-                statuses = json.loads(request_until_succeed(
-                                        statuses['paging']['next']))
-            else:
-                has_next_page = False
+    logger.debug('\nDone!')
+    logger.debug('{} Statuses processed'.format(count))
+    # Remember to put time diff here
 
-
-        logger.debug("\nDone!\n%s Statuses Processed in %s" % \
-            (num_processed, datetime.datetime.now() - scrape_starttime))
+    file.close()
 
 
 if __name__ == '__main__':
-    scrapeFacebookPageFeedStatus(page_id, access_token)
+    page_demo = 'CuteDogsAndEpicMemes'
+    scrape_posts(page_identifier)
 
 

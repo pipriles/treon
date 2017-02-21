@@ -53,6 +53,12 @@ def twitter_api():
 	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
 	return tweepy.API(auth)
 
+#############################################
+#											#
+# Put function that makes the request here	#
+#											#
+#############################################
+
 def fetch_tweets(user, max_cont=None, oldest=None):
 	#
 	# First steps...

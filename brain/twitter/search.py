@@ -57,7 +57,7 @@ FILE_PATH = 'csv/{}_tweets.csv'
 # 
 # 	return (tweets, timeline['data-min-position'])
 
-def do_request(user, max_position):
+def do_request(user, max_position, retries=10):
 
 	print("Fetching {} ...".format(user))
 
@@ -66,16 +66,16 @@ def do_request(user, max_position):
 		'max_position': max_position
 	}
 
-	print(BASE_URL)	# Debug
-	print(payload)	# Debug
-
-	try:
-		resp = rq.get(BASE_URL, params=payload, headers=HEADERS)
-		data = resp.json()
-	except Exception as e:
-		print(resp, resp.reason)
-		print(e)
-		data = None
+	data = None
+	while retries > 0:
+		try:
+			resp = rq.get(BASE_URL, params=payload, headers=HEADERS)
+			data = resp.json()
+		except Exception as e:
+			retries -= 1
+			print(resp, resp.reason)
+			print(e)
+			time.sleep(3)
 
 	return data
 
@@ -94,11 +94,11 @@ def fetch_tweets(user, max_=1000):
 	file = open(path, 'w', encoding='utf-8')
 	wt = csv.writer(file)
 
-	while max_position is not None: # and cont < max_:
+	while True: # and cont < max_:
 
 		data = do_request(user, max_position)
 		
-		if data is None:
+		if data is None or not data['has_more_items']:
 			break
 
 		try:
