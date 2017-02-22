@@ -9,14 +9,15 @@ import logging
 import os
 
 from .. import config
+from .. import util
 
 # I have to put the filter to the text of the posts
 
-BASE_URL = 'https://graph.facebook.com/v2.6/'
-
 logger = logging.getLogger(__name__)
 
-access_token = config.APP_ID + '|' + config.APP_SECRET
+BASE_URL = 'https://graph.facebook.com/v2.6/'
+
+ACCESS_TOKEN = config.APP_ID + '|' + config.APP_SECRET
 
 CSV_HEADER = ["status_id", "status_message", "link_name", 
     "status_type", "status_link", "status_published", 
@@ -27,6 +28,8 @@ REACTIONS = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY']
 
 FROM_DT_FORMAT = '%Y-%m-%dT%H:%M:%S+0000'
 TO_DT_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+MAX_SLEEP = 3
 
 def do_request(url, params={}, retries=10):
 
@@ -39,13 +42,12 @@ def do_request(url, params={}, retries=10):
             retries  = 0
         except Exception as e:
             logger.warning('Error! %s', e)
+            logger.warning('Retrying in %ss', MAX_SLEEP)
             retries -= 1
-            time.sleep(3)   # Put max wait time
+            time.sleep(MAX_SLEEP)   # Put max wait time
 
     return data
 
-
-# Helper function
 def to_hashtable(posts):
     return { p['id']:p for p in posts }
 
@@ -61,7 +63,7 @@ def fetch_posts(page, limit=100):
     params = {
         'fields': fields,
         'limit': limit,
-        'access_token': access_token 
+        'access_token': ACCESS_TOKEN
         # APP ID | APP SECRET
     }
 
@@ -83,30 +85,6 @@ def fetch_posts(page, limit=100):
 
     return posts
 
-# This will become opcional
-def fetch_reactions(post):
-
-    node = '{}'.format(post)
-
-    fields  = "reactions.type(LIKE).limit(0).summary(total_count).as(like)"
-    fields += ",reactions.type(LOVE).limit(0).summary(total_count).as(love)"
-    fields += ",reactions.type(WOW).limit(0).summary(total_count).as(wow)"
-    fields += ",reactions.type(HAHA).limit(0).summary(total_count).as(haha)"
-    fields += ",reactions.type(SAD).limit(0).summary(total_count).as(sad)"
-    fields += ",reactions.type(ANGRY).limit(0).summary(total_count).as(angry)"
-
-    params = {
-        'fields': fields,
-        'access_token': access_token
-    }
-
-    url = BASE_URL + node
-
-    data = do_request(url, params)
-
-    # Load json from data
-    return data
-
 def parse_post(post):
 
     def to_datetime(date):
@@ -120,14 +98,18 @@ def parse_post(post):
             return 0
 
     id_ = post['id'] 
+    
+    # Get post text
     message = post.get('message', '')
+    message = util.clean_text(message)
+
     name = post.get('name', '')
     type_ = post.get('type', '')
     link = post.get('link', '')
     created_time = to_datetime(post['created_time'])
 
     comments_count = get_summary('comments', post)
-
+    
     if 'shares' in post:
         shares_count = post['shares']['count']
     else:
@@ -140,7 +122,7 @@ def parse_post(post):
         reacts_count, comments_count) + reacts
 
 def write_stats(stats, writer):
-
+    
     for st in stats:
         data = parse_post(st)
         writer.writerow(data)
@@ -173,12 +155,10 @@ def scrape_posts(page):
         else:
             done = True
 
-    logger.debug('\nDone!')
-    logger.debug('{} Statuses processed'.format(count))
+    logger.debug('Done!')
     # Remember to put time diff here
 
     file.close()
-
 
 if __name__ == '__main__':
     page_demo = 'CuteDogsAndEpicMemes'

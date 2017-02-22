@@ -12,6 +12,7 @@
 import os
 import re
 import logging
+import time
 
 from queue import Queue
 from threading import Thread
@@ -21,13 +22,12 @@ from brain import treon
 from brain.twitter import tweets
 from brain.facebook import posts
 
-MAX_THREADS = 3
+MAX_THREADS = 1 # Change this for more threads
 MAX_Q_SIZE = 10
 
 #logging.basicConfig(
 #	level=logging.DEBUG, 
 #	format='%(relativeCreated)6d %(threadName)s %(message)s')
-
 
 logger = logging.getLogger('brain')
 
@@ -68,7 +68,7 @@ class Treon(Thread):
 				resolve_tasks(stat)
 
 		except Exception as e:
-			raise e
+			raise
 
 		finally:
 			logger.info('Closed treon task.')
@@ -97,9 +97,7 @@ class FacebookTask(Thread):
 				pass
 
 			# make the same here for the comments
-
 			# q.task_done()
-			# Name very long
 
 	def close(self):
 		logger.info('Closed facebook task.')
@@ -129,7 +127,7 @@ class TwitterTask(Thread):
 
 def facebook_work(url):
 	if url is not None:
-		user = re.sub(r'.*facebook\.com\/(.+)', r'\1', url)
+		user = re.sub(r'.*facebook\.com\/(?:pages\/)?([^\/]+)\/?.*', r'\1', url)
 		f_queue.put(user)
 
 def twitter_work(url):
@@ -167,21 +165,11 @@ def main():
 	
 	try:
 		while True:
-			pass
+			time.sleep(5)
 	except BaseException as e:
 		logger.debug('Exit! %s', e)
 	finally:
 		finish_threads()
-
-	# try:
-	# 	while True:
-	# 		resolve_tasks()
-	# except BaseException as e:
-	# 	finish_threads(threads)
-	# 	raise e
-
-	# block until all tasks are done
-	# q.join()
 
 if __name__ == '__main__':
 	main()

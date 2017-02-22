@@ -2,7 +2,9 @@
 Scraper for **graphtreon**, **facebook** and **twitter**. 
 For now...
 
-To do:
+---
+
+**TODO**:
 - [X] Scrape graphtreon
 - [X] Scrape twitter
 - [X] Scrape facebook
@@ -13,4 +15,7 @@ To do:
 - [ ] Put facebook comments
 - [ ] Solve tweepy problem
 - [ ] Add youtube scraper
-- [ ] Fix 3000 Tweets limit the rest of twitter tweets
+- [X] Fix 3000 Tweets limit the rest of twitter tweets
+- [X] Optimize facebook posts
+- [ ] Skip if the csv file already exists
+- [ ] Handle lost connections

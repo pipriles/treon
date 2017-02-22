@@ -35,9 +35,11 @@ import logging
 import time
 import random
 
-from ..config import *
+from .. import config
+from .. import util
 
 MAX_RETRIES = 5
+MAX_SLEEP = 3
 
 logger = logging.getLogger(__name__)
 
@@ -45,51 +47,45 @@ tweet_data = ('id', 'text', 'retweet_count',
 	'favorite_count', 'created_at', 'lang', 'coordinates')
 
 def filter_data(tweet):
+	
+	# Should i encode to utf-8 the text?
+	tweet.text = util.clean_text(tweet.text)
+	
 	return tuple(getattr(tweet, attr) for attr in tweet_data)
-	# Should i encode utf-8 the text?
 
 def twitter_api():
-	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+	auth = tweepy.OAuthHandler(config.CONSUMER_KEY, config.CONSUMER_SECRET)
+	auth.set_access_token(config.ACCESS_KEY, config.ACCESS_SECRET)
 	return tweepy.API(auth)
 
-#############################################
-#											#
-# Put function that makes the request here	#
-#											#
-#############################################
+def do_request(api, user, id_, count=200, retries=10):
+
+	data = None
+
+	while retries > 0:
+		try:
+			data = api.user_timeline(
+				screen_name=user, count=count, max_id=id_)
+			retries = 0
+		except Exception as e:
+			logger.warning('Error! (%s)', e)
+			logger.warning('Retrying in %ss', MAX_SLEEP)
+			retries -= 1
+			time.sleep(MAX_SLEEP)
+
+	return data
 
 def fetch_tweets(user, max_cont=None, oldest=None):
-	#
-	# First steps...
-	
+
 	api = twitter_api()
-	
-	retries = MAX_RETRIES
 	cont = 0
 
 	while max_cont is None or cont < max_cont:
 
 		logger.debug("{} : {}".format(user, oldest))
+		chunk = do_request(api, user, oldest)
 
-		try:
-			chunk = api.user_timeline(
-				screen_name=user, count=200, max_id=oldest)
-		except Exception as e:
-
-			if retries > 0:
-				retries -= 1	
-
-				step = random.randint(1, MAX_RETRIES-retries)
-				logger.warning('Error! ({}), Retrying {}s ...'.format(e, step))
-
-				time.sleep(2 ** step)
-
-				continue
-
-			raise e
-
-		if len(chunk) <= 0:
+		if not chunk or len(chunk) <= 0:
 			break
 		
 		yield [filter_data(tweet) for tweet in chunk] 
@@ -101,10 +97,10 @@ def fetch_tweets(user, max_cont=None, oldest=None):
 
 def scrape_tweets(user):
 	
-	if not os.path.exists(TWEETS_PATH):
-		os.makedirs(TWEETS_PATH)
+	if not os.path.exists(config.TWEETS_PATH):
+		os.makedirs(config.TWEETS_PATH)
 
-	path = TWEETS_PATH + '{}_tweets.csv' .format(user)
+	path = config.TWEETS_PATH + '{}_tweets.csv' .format(user)
 
 	with open(path, 'w', encoding='utf-8') as f:
 		
