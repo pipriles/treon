@@ -10,8 +10,7 @@ import os
 
 from .. import config
 
-# I'll make this multithreading to accelerate the
-# requests
+# I have to put the filter to the text of the posts
 
 BASE_URL = 'https://graph.facebook.com/v2.6/'
 
@@ -23,6 +22,8 @@ CSV_HEADER = ["status_id", "status_message", "link_name",
     "status_type", "status_link", "status_published", 
     "num_reactions", "num_comments", "num_shares", "num_likes", 
     "num_loves", "num_wows", "num_hahas", "num_sads", "num_angrys"]
+
+REACTIONS = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY']
 
 FROM_DT_FORMAT = '%Y-%m-%dT%H:%M:%S+0000'
 TO_DT_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -37,33 +38,52 @@ def do_request(url, params={}, retries=10):
             data = resp.json()
             retries  = 0
         except Exception as e:
+            logger.warning('Error! %s', e)
             retries -= 1
             time.sleep(3)   # Put max wait time
 
     return data
 
-def fetch_posts(page, limit):
 
+# Helper function
+def to_hashtable(posts):
+    return { p['id']:p for p in posts }
+
+def fetch_posts(page, limit=100):
+
+    logger.debug('Fetching posts from %s', page)
     node = '{}/posts'.format(page)
 
     # I have to move this to a superior scope
     fields  = 'message,link,created_time,type,name,id,shares,'
-    fields += 'comments.limit(0).summary(true),'
-    fields += 'reactions.limit(0).summary(true)'
+    fields += 'comments.limit(0).summary(true)'
 
     params = {
         'fields': fields,
         'limit': limit,
-        'access_token': access_token    # APP ID | APP SECRET
+        'access_token': access_token 
+        # APP ID | APP SECRET
     }
 
     url = BASE_URL + node
+    
+    # First request
+    posts = do_request(url, params)
+    p_tab = to_hashtable(posts['data'])
 
-    data = do_request(url, params)
+    # Fetch for each reaction and combine
+    reacts = 'reactions.limit(0).summary(true).type({})'
+    for react in REACTIONS:
+        params['fields'] = reacts.format(react)
+        resp = do_request(url, params)
+        r_tab = to_hashtable(resp['data'])
 
-    # Load json from data
-    return data
+        for key in p_tab:
+            p_tab[key][react.lower()] = r_tab[key]['reactions']
 
+    return posts
+
+# This will become opcional
 def fetch_reactions(post):
 
     node = '{}'.format(post)
@@ -106,7 +126,6 @@ def parse_post(post):
     link = post.get('link', '')
     created_time = to_datetime(post['created_time'])
 
-    reactions_count = get_summary('reactions', post)
     comments_count = get_summary('comments', post)
 
     if 'shares' in post:
@@ -114,30 +133,17 @@ def parse_post(post):
     else:
         shares_count = 0
 
-    reactions = {}
-
-    if created_time >= '2016-02-24 00:00:00':
-        reactions = fetch_reactions(post['id'])
-        likes = get_summary('likes', reactions)
-    else:
-        likes = reactions_count
-
-    loves = get_summary('love', reactions)
-    wows = get_summary('wow', reactions)
-    hahas = get_summary('haha', reactions)
-    sads = get_summary('sad', reactions)
-    angrys = get_summary('angry', reactions)
+    reacts = tuple(get_summary(r, post) for r in REACTIONS)
+    reacts_count = sum(reacts)
 
     return (id_, message, name, type_, link, created_time, 
-        reactions_count, comments_count, shares_count,
-        likes, loves, wows, hahas, sads, angrys)
+        reacts_count, comments_count) + reacts
 
 def write_stats(stats, writer):
 
     for st in stats:
-        if 'reactions' in st:   # Not sure if this is useful
-            data = parse_post(st)
-            writer.writerow(data)
+        data = parse_post(st)
+        writer.writerow(data)
 
 def scrape_posts(page):
 
@@ -176,6 +182,7 @@ def scrape_posts(page):
 
 if __name__ == '__main__':
     page_demo = 'CuteDogsAndEpicMemes'
+    logging.basicConfig(level=level.DEBUG)
     scrape_posts(page_identifier)
 
 
