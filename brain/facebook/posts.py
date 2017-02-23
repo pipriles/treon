@@ -51,6 +51,28 @@ def do_request(url, params={}, retries=10):
 def to_hashtable(posts):
     return { p['id']:p for p in posts }
 
+def put_reaction(react, ptab, rtab):
+
+	default = { 'reactions': { 'summary': { 'total_count': 0 } } }
+
+	# Maybe i'll change this solution in the future
+	for key in ptab:
+		ptab[key][react] = rtab.get(key, default)['reactions']
+
+def fetch_reactions(posts, url, params):
+
+    reacts = 'reactions.limit(0).summary(true).type({})'
+    ptab = to_hashtable(posts['data'])
+
+    for react in REACTIONS:
+        params['fields'] = reacts.format(react)
+
+        # Fetch for each reaction and combine
+        resp = do_request(url, params)
+        rtab = to_hashtable(resp['data'])
+
+        put_reaction(react.lower(), ptab, rtab)
+
 def fetch_posts(page, limit=100):
 
     logger.debug('Fetching posts from %s', page)
@@ -71,17 +93,7 @@ def fetch_posts(page, limit=100):
     
     # First request
     posts = do_request(url, params)
-    p_tab = to_hashtable(posts['data'])
-
-    # Fetch for each reaction and combine
-    reacts = 'reactions.limit(0).summary(true).type({})'
-    for react in REACTIONS:
-        params['fields'] = reacts.format(react)
-        resp = do_request(url, params)
-        r_tab = to_hashtable(resp['data'])
-
-        for key in p_tab:
-            p_tab[key][react.lower()] = r_tab[key]['reactions']
+    fetch_reactions(posts, url, params)
 
     return posts
 
@@ -162,7 +174,7 @@ def scrape_posts(page):
 
 if __name__ == '__main__':
     page_demo = 'CuteDogsAndEpicMemes'
-    logging.basicConfig(level=level.DEBUG)
+    logging.basicConfig(level=logging.DEBUG)
     scrape_posts(page_identifier)
 
 
