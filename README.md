@@ -13,9 +13,10 @@ For now...
 - [X] Change csv folder dest
 - [ ] Save the state of the script
 - [ ] Put facebook comments
-- [ ] Solve tweepy problem
+- [X] Solve tweepy problem
 - [ ] Add youtube scraper
 - [X] Fix 3000 Tweets limit the rest of twitter tweets
 - [X] Optimize facebook posts
 - [ ] Skip if the csv file already exists
-- [ ] Handle lost connections
+- [X] Handle lost connections
+- [X] Clean extra whitespaces, etc...

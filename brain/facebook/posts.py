@@ -31,6 +31,13 @@ TO_DT_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 MAX_SLEEP = 3
 
+def to_hashtable(posts):
+    return { p['id']:p for p in posts }
+
+def to_datetime(date):
+        t = dt.datetime.strptime(date, FROM_DT_FORMAT)
+        return t.strftime(TO_DT_FORMAT)
+
 def do_request(url, params={}, retries=10):
 
     data = None
@@ -47,9 +54,6 @@ def do_request(url, params={}, retries=10):
             time.sleep(MAX_SLEEP)   # Put max wait time
 
     return data
-
-def to_hashtable(posts):
-    return { p['id']:p for p in posts }
 
 def put_reaction(react, ptab, rtab):
 
@@ -98,10 +102,6 @@ def fetch_posts(page, limit=100):
     return posts
 
 def parse_post(post):
-
-    def to_datetime(date):
-        t = dt.datetime.strptime(date, FROM_DT_FORMAT)
-        return t.strftime(TO_DT_FORMAT)
 
     def get_summary(attr, src):
         if attr in src:
