@@ -61,10 +61,13 @@ class Treon(Thread):
 			while not self.end and self.data:
 				user = self.data.pop(0)
 				
-				logger.debug(
+				logger.info(
 					'(%4s) Fetching %s ...', len(self.data), user)
 				
 				stat = ap.start(user)
+
+				logger.debug(stat)
+
 				resolve_tasks(stat)
 
 		except Exception as e:

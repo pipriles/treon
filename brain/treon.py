@@ -19,6 +19,14 @@ from . import config
 SITE_URL = 'https://graphtreon.com'
 FILE_PATH = config.CREATORS_FILE
 
+NAMES = (r'Patrons', r'Earnings per thing', 
+	r'Earnings per Video', r'Earnings per month', 
+	r'Avg Patron per thing', r'Avg Patron per Video', 
+	r'Avg Patron per month', r'Likes', r'Followers', 
+	r'Subscribers')
+
+PATTERNS = tuple(re.compile(n, re.I) for n in NAMES)
+
 MAX_THREADS = 6
 
 logger = logging.getLogger(__name__)
@@ -106,9 +114,17 @@ def parse_content(stats, content):
 
 	stats[key] = final_value
 
-def parse_account(info, name, val, url):
+def detect_key(name):
 
-	key = {
+	pattern = None
+
+	for p in PATTERNS:
+		if p.search(name):
+			pattern = p.pattern
+			break
+
+	# Maybe not good idea to put this here
+	return {
 		'Patrons': 				'patrons',
 		'Earnings per thing':	'earningsPerThing',
 		'Earnings per Video':	'earningsPerVideo',
@@ -119,7 +135,12 @@ def parse_account(info, name, val, url):
 		'Likes':				'facebook',
 		'Followers':			'twitter',
 		'Subscribers':			'youtube'
-	}.get(name, None)
+	}.get(pattern, None)
+
+def parse_account(info, name, val, url):
+
+	# The key must be more complicated than this
+	key = detect_key(name)
 
 	if key in ('patrons', 'facebook', 'twitter', 'youtube'):
 		info['%s_count' % key] = re.sub(r'[^\d\.KM]', r'', val, flags=re.I)
