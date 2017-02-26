@@ -65,10 +65,9 @@ class Treon(Thread):
 					'(%4s) Fetching %s ...', len(self.data), user)
 				
 				stat = ap.start(user)
-
-				logger.debug(stat)
-
 				resolve_tasks(stat)
+
+				# Wait to resolve another task
 
 		except Exception as e:
 			raise

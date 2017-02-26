@@ -56,7 +56,6 @@ def put_reaction(react, ptab, rtab):
 def fetch_reactions(posts, url, params):
 
     reacts = 'reactions.limit(0).summary(true).type({})'
-    logger.debug(posts)
     ptab = to_hashtable(posts['data'])
 
     for react in REACTIONS:
