@@ -2,7 +2,6 @@
 # encoding: utf-8
 
 import requests as rq
-import datetime as dt
 import csv
 import time
 import logging
@@ -10,8 +9,6 @@ import os
 
 from .. import config
 from .. import util
-
-# I have to put the filter to the text of the posts
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +23,10 @@ CSV_HEADER = ["status_id", "status_message", "link_name",
 
 REACTIONS = ['LIKE', 'LOVE', 'WOW', 'HAHA', 'SAD', 'ANGRY']
 
-FROM_DT_FORMAT = '%Y-%m-%dT%H:%M:%S+0000'
-TO_DT_FORMAT = '%Y-%m-%d %H:%M:%S'
-
 MAX_SLEEP = 3
 
 def to_hashtable(posts):
     return { p['id']:p for p in posts }
-
-def to_datetime(date):
-        t = dt.datetime.strptime(date, FROM_DT_FORMAT)
-        return t.strftime(TO_DT_FORMAT)
 
 def do_request(url, params={}, retries=10):
 
@@ -66,6 +56,7 @@ def put_reaction(react, ptab, rtab):
 def fetch_reactions(posts, url, params):
 
     reacts = 'reactions.limit(0).summary(true).type({})'
+    logger.debug(posts)
     ptab = to_hashtable(posts['data'])
 
     for react in REACTIONS:
@@ -97,7 +88,11 @@ def fetch_posts(page, limit=100):
     
     # First request
     posts = do_request(url, params)
-    fetch_reactions(posts, url, params)
+    
+    if 'data' in posts:
+        fetch_reactions(posts, url, params)
+    else:
+        posts = None
 
     return posts
 
@@ -118,7 +113,7 @@ def parse_post(post):
     name = post.get('name', '')
     type_ = post.get('type', '')
     link = post.get('link', '')
-    created_time = to_datetime(post['created_time'])
+    created_time = util.to_datetime(post['created_time'])
 
     comments_count = get_summary('comments', post)
     
