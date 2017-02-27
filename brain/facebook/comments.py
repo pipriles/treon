@@ -82,9 +82,12 @@ def parse_comments(comment, post, parent=''):
 
 def read_posts(reader, writer):
 
+    cont = 0
     for post in reader:
         id_ = post['status_id']
         r_comments(id_, id_, writer)
+        cont += 1
+        logger.debug('%s Posts comments scraped', cont)
 
 # Fetch comments with recursion
 
@@ -96,14 +99,14 @@ def r_comments(parent, status, writer):
 
     while not done:
         
-        logger.debug(comments)
+        # logger.debug(comments)
 
         for comment in comments.get('data', {}):
             row = parse_comments(comment, status, parent)
             writer.writerow(row)
 
             if 'comments' in comment:
-                logger.debug('Subcomment!')
+                #logger.debug('Subcomment!')
                 r_comments(comment['id'], status, writer)
 
             count += 1
@@ -114,7 +117,7 @@ def r_comments(parent, status, writer):
         else:
             done = True
 
-    logger.debug('End!')
+    # logger.debug('End!')
 
 def scrape_comments(post):
 

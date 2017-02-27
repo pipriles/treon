@@ -14,6 +14,8 @@ from multiprocessing.dummy import Pool
 from bs4 import BeautifulSoup
 from datetime import datetime as dt
 
+from .. import config
+
 BASE_URL = 'https://twitter.com/i/search/timeline'
 
 USER_AGENT  = "Mozilla/5.0 (X11; Linux x86_64) "
@@ -23,39 +25,9 @@ USER_AGENT += "Safari/537.36"
 
 HEADERS = { 'user-agent': USER_AGENT }
 
-# Hardcoded for now....
-USERS = ['kindafunnyvids', 'amandapalmer', 'cgpgrey', 'Kurz_Gesagt', 
-	'EasyAllies', 'FenoxoFenfen', 'TheComedyButton', 'swordandscale', 
-	'JimSterling', 'RollPlay', 'PTXofficial', 'CANADALAND', 
-	'tarababcock', 'marble_syrup']
+TWITTER_HEADER = ['id', 'user', 'text', 'date', 'reply', 'retweet', 'favorite']
 
-MAX_THREADS = 10
-FILE_PATH = 'csv/{}_tweets.csv'
-
-# This will become not useful
-# def open_browser_with(user):
-# 
-# 	url = BASE_URL.format(user)
-# 
-# 	# Open browser to just get the html
-# 	browser = webdriver.Chrome()
-# 	browser.get(url)
-# 	html = browser.page_source	
-# 	browser.close()
-# 
-# 	return html
-# 
-# def first_request(user):
-# 
-# 	html = open_browser_with(user)
-# 
-# 	# Parse to extract the min position
-# 	tweets = parse_tweets(html)
-# 
-# 	soup = BeautifulSoup(html, 'html.parser')
-# 	timeline = soup.select('div#timeline .stream-container')[0]
-# 
-# 	return (tweets, timeline['data-min-position'])
+FILE_PATH = config.TWEETS_PATH + '{}_tweets.csv'
 
 def do_request(user, max_position, retries=10):
 
@@ -71,6 +43,7 @@ def do_request(user, max_position, retries=10):
 		try:
 			resp = rq.get(BASE_URL, params=payload, headers=HEADERS)
 			data = resp.json()
+			retries = 0
 		except Exception as e:
 			retries -= 1
 			print(resp, resp.reason)
@@ -81,7 +54,9 @@ def do_request(user, max_position, retries=10):
 
 def fetch_tweets(user, max_=1000):
 	
-	cont = 0
+	cont =  0
+	last = -1
+
 	max_position = ''
 	data = {}
 
@@ -89,16 +64,21 @@ def fetch_tweets(user, max_=1000):
 		for t in tweets:
 			wt.writerow(t.values())
 
+	if not os.path.exists(config.TWEETS_PATH):
+		os.makedirs(config.TWEETS_PATH)
+
 	# Open file
 	path = FILE_PATH.format(user)
 	file = open(path, 'w', encoding='utf-8')
 	wt = csv.writer(file)
 
-	while True: # and cont < max_:
+	wt.writerow(TWITTER_HEADER)
+
+	while cont > last: # and cont < max_:
 
 		data = do_request(user, max_position)
-		
-		if data is None or not data['has_more_items']:
+
+		if data is None:# or not data['has_more_items']:
 			break
 
 		try:
@@ -112,6 +92,7 @@ def fetch_tweets(user, max_=1000):
 		# Store tweets
 		write_tweets(tweets)
 
+		last = cont
 		cont += len(tweets)
 
 		print('Fetched {} results'.format(cont))
@@ -128,8 +109,6 @@ def parse_tweets(html):
 
 def scrape_tweet(tweet):
 	
-	data = {}
-
 	def cont_attr(attr):
 		item_class = 'ProfileTweet-action--{}'.format(attr)
 		info = tweet.find('span', class_=item_class)
@@ -142,13 +121,15 @@ def scrape_tweet(tweet):
 	tweet_e = tweet.find('div', class_='js-tweet-text-container')
 	date_e = tweet.find('span', class_='_timestamp')
 
-	data['id'] = tweet['data-tweet-id']
-	data['user'] = user_e.b.text
-	data['text'] = re.sub(r'\n', '', tweet_e.text)
-	data['date'] = to_datetime(date_e['data-time'])
-	data['reply'] = cont_attr('reply')
-	data['retweet'] = cont_attr('retweet')
-	data['favorite'] = cont_attr('favorite')
+	return {
+		'id': tweet['data-tweet-id'],
+		'user': user_e.b.text,
+		'text': re.sub(r'\n', '', tweet_e.text), 
+		'date': to_datetime(date_e['data-time']),
+		'reply': cont_attr('reply'),
+		'retweet': cont_attr('retweet'),
+		'favorite': cont_attr('favorite')
+	}
 
 	return data
 

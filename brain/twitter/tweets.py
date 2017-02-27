@@ -82,7 +82,8 @@ def fetch_tweets(user, max_cont=None, oldest=None):
 
 	while max_cont is None or cont < max_cont:
 
-		logger.debug("{} : {}".format(user, oldest))
+		# user : max_id
+		# logger.debug("{} : {}".format(user, oldest))
 		chunk = do_request(api, user, oldest)
 
 		if not chunk or len(chunk) <= 0:

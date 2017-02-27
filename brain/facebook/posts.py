@@ -135,6 +135,11 @@ def write_stats(stats, writer):
 
 def scrape_posts(page):
 
+    count = 0
+
+    if not page:
+        return count # Should i raise an exception?
+
     if not os.path.exists(config.POSTS_PATH):
         os.makedirs(config.POSTS_PATH)
 
@@ -146,8 +151,6 @@ def scrape_posts(page):
     wt.writerow(CSV_HEADER)
 
     done = False
-    count = 0
-
     stats = fetch_posts(page, 100)  # Put max limit to 100
 
     while not done and stats is not None:
@@ -161,10 +164,12 @@ def scrape_posts(page):
         else:
             done = True
 
+    file.close()
+
     logger.debug('Done!')
     # Remember to put time diff here
 
-    file.close()
+    return count
 
 if __name__ == '__main__':
     page_demo = 'CuteDogsAndEpicMemes'
